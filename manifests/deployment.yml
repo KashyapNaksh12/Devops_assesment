@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-application
+  labels:
+    app: java-application
+    version: latest
+  namespace: dev 
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java-application
+      version: latest
+  template:
+    metadata:
+      labels:
+        app: java-application
+        version: latest
+    spec:
+      imagePullSecrets:
+      - name: regcred-1 
+      containers:
+      - name: java-application
+        image: 202777530074.dkr.ecr.us-east-1.amazonaws.com/api-analytics-onprem:6 
+        imagePullPolicy: Always
+        env:
+        - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: devops-secret
+                  key: postgres-user
+        - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: devops-secret
+                  key: postgres-host
+        - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: devops-secret
+                  key: postgres-password
+        ports:
+        - containerPort: 8080
+#        resources:
+#          limits:
+#            cpu: 1500m
+#            memory: 2Gi
+#          requests:
+#            cpu: 1400m
+#            memory: 2Gi
+        readinessProbe:
+          httpGet:
+            path: /stats/health/readiness
+            port: 8080
+          initialDelaySeconds: 180
+          timeoutSeconds: 3
+          periodSeconds: 5
+          failureThreshold: 1
+        livenessProbe:
+          httpGet:
+            path: /stats/health/liveness
+            port: 8080
+          initialDelaySeconds: 180
+          timeoutSeconds: 3
+          periodSeconds: 5
+          failureThreshold: 1
+ 
+              
+---
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: java-application-service
+  namespace: dev 
+  labels:
+    app: java-application
+spec:
+  selector:
+    app: java-application
+  type: NodePort
+  ports: 
+  - name: http
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+    nodePort: 30329
